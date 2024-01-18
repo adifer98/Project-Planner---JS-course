@@ -1,33 +1,78 @@
-class ToolTip {}
+class ToolTip {
+
+    constructor(operatingFunction) {
+        this.operate = operatingFunction;
+    }
+
+    deleteElement = () => {
+        this.operate();
+        this.detach();
+    }
+    detach(){
+        this.element.remove();
+    }
+    attach() {
+        const element = document.createElement('div');
+        element.className = 'card';
+        element.textContent = 'WHAT SAY!'
+        element.addEventListener('click', this.deleteElement);
+        document.body.append(element);
+        this.element = element;
+    }
+
+
+}
 
 class DOMHelper {
-    static addElement(elementId, destinationSelector) {
+    static moveElement(elementId, destinationSelector) {
         const element = document.getElementById(elementId);
         const destinationElement = document.querySelector(destinationSelector);
         destinationElement.append(element);
     }
 
-    static removeElement(elementId, destinationSelector) {
-        const element = document.getElementById(elementId);
-        const destinationElement = document.querySelector(destinationSelector);
-        destinationElement;
+    static clearEventListeners(element) {
+        let clonedElement = element.cloneNode(true);
+        element.replaceWith(clonedElement);
+        return clonedElement;
     }
 }
 
 class ProjectItem {
-    constructor(elementId, switchListFunction) {
+
+    moreInfoIsShowed = false;
+    constructor(elementId, switchListFunction, type) {
         this.id = elementId;
         this.switchListHandler = switchListFunction;
-        this.connectSwitchBtn();
+        this.connectSwitchBtn(type);
         this.connectMoreInfoBtn();
     }
 
-    connectSwitchBtn() {
-        const switchBtnEl = document.querySelector(`#${this.id} button:last-of-type`);
+    connectSwitchBtn(type) {
+        let switchBtnEl = document.querySelector(`#${this.id} button:last-of-type`);
+        switchBtnEl = DOMHelper.clearEventListeners(switchBtnEl);
+        switchBtnEl.textContent = type === 'active' ? 'Finish' : 'Activate';
         switchBtnEl.addEventListener('click', this.switchListHandler);
     }
-    
-    connectMoreInfoBtn() {}
+
+
+    moreInfoHandler() {
+        if(this.moreInfoIsShowed) {
+            return;
+        }
+        const toolTip = new ToolTip(() => this.moreInfoIsShowed = false);
+        toolTip.attach();
+        this.moreInfoIsShowed = true;
+    }
+
+    connectMoreInfoBtn() {
+        let moreInfoBtnEl = document.querySelector(`#${this.id} button:first-of-type`);
+        moreInfoBtnEl.addEventListener('click', this.moreInfoHandler)
+    }
+
+    update(newSwitchListFunc, type) {
+        this.switchListHandler = newSwitchListFunc;
+        this.connectSwitchBtn(type);
+    }
 }
 
 class ProjectList {
@@ -37,18 +82,18 @@ class ProjectList {
         this.type = type;
         const projList = document.querySelectorAll(`#${type}-projects li`);
         for (const projItemEl of projList) {
-            this.projects.push(new ProjectItem(projItemEl.id, this.switchProject.bind(this)));
+            this.projects.push(new ProjectItem(projItemEl.id, this.switchProject.bind(this, projItemEl.id), type));
         }
     }
 
-    set switchHandler(switchHandlerFunction) {
+    setSwitchHandler(switchHandlerFunction) {
         this.switchHandler = switchHandlerFunction;
     }
 
-    addProject(proj) {
-        this.projects.push(proj);
-        DOMHelper.addElement(proj.id, `#${this.type}-projects ul`);
-
+    addProject(project) {
+        this.projects.push(project);
+        DOMHelper.moveElement(project.id, `#${this.type}-projects ul`);
+        project.update(this.switchProject.bind(this, project.id), this.type)
     }
 
     switchProject(projectId) {
@@ -63,8 +108,8 @@ class App {
     static init() {
         const activeProjectsList = new ProjectList('active');
         const finishedProjectsList = new ProjectList('finished');
-        activeProjectsList.switchHandler = finishedProjectsList.addProject.bind(finishedProjectsList);
-        finishedProjectsList.switchHandler = activeProjectsList.addProject.bind(activeProjectsList);
+        activeProjectsList.setSwitchHandler(finishedProjectsList.addProject.bind(finishedProjectsList));
+        finishedProjectsList.setSwitchHandler(activeProjectsList.addProject.bind(activeProjectsList));
     }
 }
 
